@@ -665,6 +665,12 @@
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
+        .status-returned {
+            background: rgba(139, 92, 246, 0.1);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
         .list-state {
             text-align: center;
             padding: 64px 20px;
@@ -874,6 +880,23 @@
         </div>
     </div>
 
+    <!-- ── 返却確認モーダル ── -->
+    <div id="return-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center; padding:24px;">
+        <div style="background:#1e293b; border:1px solid rgba(255,255,255,0.1); border-radius:24px; padding:28px; width:100%; max-width:380px;">
+            <div style="font-size:32px; text-align:center; margin-bottom:12px;">↩️</div>
+            <div style="font-size:18px; font-weight:700; color:#f1f5f9; text-align:center; margin-bottom:6px;">返却処理</div>
+            <div id="return-item-name" style="font-size:14px; color:#64748b; text-align:center; margin-bottom:20px;"></div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:8px;">📅 返却日</label>
+                <input type="date" id="return-date-input" class="form-input">
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="closeReturnModal()">キャンセル</button>
+                <button class="btn btn-success" style="flex:1;" onclick="confirmReturn()">✅ 返却済みにする</button>
+            </div>
+        </div>
+    </div>
+
     <input type="file" id="camera-input" accept="image/*" capture="environment">
     <div class="toast" id="toast"></div>
 
@@ -908,7 +931,7 @@
         }
 
         // ── グローバル状態 ──
-        const state = { base64: null, mime: 'image/jpeg', aiResult: null };
+        const state = { base64: null, mime: 'image/jpeg', aiResult: null, driveFileId: null };
 
         function showScreen(name) {
             document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
@@ -966,49 +989,42 @@
             });
         }
 
-        // ── AI解析 → フォーム表示 ──
+        // ── AI解析（Drive保存+Gemini） → フォーム表示 ──
         function startAnalysis() {
             showScreen('analyzing');
-            var now = new Date();
+            var now  = new Date();
             var date = now.toISOString().split('T')[0];
             var time = now.toTimeString().slice(0, 5);
 
             callGasApi({
-                action: 'submit',
+                action:      'analyze',
                 imageBase64: state.base64,
-                imageMime: state.mime,
-                location: '',
-                person: '',
-                notes: '',
-                item: ''
+                imageMime:   state.mime
             }).then(function (result) {
                 if (!result.success) {
                     showToast('❌ エラー: ' + (result.error || '不明なエラー'));
                     showScreen('home');
                     return;
                 }
-                state.aiResult = result;
+                state.driveFileId = result.driveFileId;
+                state.aiResult    = result.aiResult;
 
-                // フォームに自動入力
-                document.getElementById('f-date').value = date;
-                document.getElementById('f-time').value = time;
-                document.getElementById('f-item').value = result.item || '';
-                document.getElementById('f-location').value = result.location || '';
-                document.getElementById('f-person').value = '';
-                document.getElementById('f-notes').value = result.notes || '';
-
-                // 成功画面に直接遷移
-                document.getElementById('success-item-name').textContent = result.item || '（品名なし）';
-                document.getElementById('success-row-info').textContent =
-                    date + ' ' + time + '　→　行 ' + result.row;
-                showScreen('success');
+                var ai = result.aiResult || {};
+                document.getElementById('f-date').value     = date;
+                document.getElementById('f-time').value     = time;
+                document.getElementById('f-item').value     = ai.item     || '';
+                document.getElementById('f-location').value = ai.location || '';
+                document.getElementById('f-person').value   = '';
+                document.getElementById('f-notes').value    = ai.notes    || '';
+                document.getElementById('form-error').classList.remove('show');
+                showScreen('form');
             }).catch(function (err) {
                 showToast('❌ 通信エラー: ' + err.message);
                 showScreen('home');
             });
         }
 
-        // ── フォーム送信（フォーム画面から修正して再送信） ──
+        // ── フォーム送信（全データをGASに送信してスプレッドシートへ保存） ──
         function submitForm() {
             var btn = document.getElementById('submit-btn');
             btn.disabled = true;
@@ -1018,13 +1034,16 @@
             errorEl.classList.remove('show');
 
             callGasApi({
-                action: 'submit',
-                imageBase64: state.base64,
-                imageMime: state.mime,
-                location: document.getElementById('f-location').value,
-                person: document.getElementById('f-person').value,
-                item: document.getElementById('f-item').value,
-                notes: document.getElementById('f-notes').value
+                action:      'submit',
+                driveFileId: state.driveFileId,
+                imageBase64: state.driveFileId ? null : state.base64,
+                imageMime:   state.mime,
+                date:        document.getElementById('f-date').value,
+                time:        document.getElementById('f-time').value,
+                location:    document.getElementById('f-location').value,
+                person:      document.getElementById('f-person').value,
+                item:        document.getElementById('f-item').value,
+                notes:       document.getElementById('f-notes').value
             }).then(function (result) {
                 btn.disabled = false;
                 btn.innerHTML = '✅ &nbsp;スプレッドシートに登録';
@@ -1047,7 +1066,7 @@
         // ── 一覧表示 ──
         function showList() {
             showScreen('list');
-            var body = document.getElementById('list-body');
+            var body    = document.getElementById('list-body');
             var countEl = document.getElementById('list-count');
             body.innerHTML = '<div class="list-state"><div class="list-spinner"></div>読み込み中...</div>';
             countEl.textContent = '';
@@ -1065,13 +1084,19 @@
                 }
                 countEl.textContent = '今月の登録: ' + result.items.length + '件';
                 body.innerHTML = result.items.map(function (it) {
-                    var statusClass = 'status-pending';
-                    if (it.status && it.status.includes('完了')) statusClass = 'status-done';
-                    if (it.status && it.status.includes('エラー')) statusClass = 'status-error';
+                    var isReturned = it.status && it.status.includes('返却');
+                    var statusClass = isReturned ? 'status-returned'
+                        : (it.status && it.status.includes('完了')) ? 'status-done'
+                        : (it.status && it.status.includes('エラー')) ? 'status-error'
+                        : 'status-pending';
 
                     var thumbHtml = it.image
                         ? '<img class="item-thumb" src="' + escHtml(it.image) + '" alt="" loading="lazy">'
                         : '<div class="item-thumb-ph">📷</div>';
+
+                    var returnBtn = isReturned ? ''
+                        : '<button onclick="returnItem(' + it.row + ',\'' + escHtml(it.sheetName) + '\',\'' + escHtml(it.item || '') + '\')" ' +
+                          'style="margin-top:6px; padding:5px 12px; font-size:11px; font-weight:700; border:1px solid rgba(139,92,246,0.3); background:rgba(139,92,246,0.08); color:#a78bfa; border-radius:12px; cursor:pointer;">↩️ 返却</button>';
 
                     return '<div class="item-card">' +
                         thumbHtml +
@@ -1081,10 +1106,46 @@
                         (it.person ? '　👤 ' + escHtml(it.person) : '') + '</div>' +
                         '<div class="item-location">📍 ' + escHtml(it.location || '---') + '</div>' +
                         '<span class="status-badge ' + statusClass + '">' + escHtml(it.status || '---') + '</span>' +
+                        returnBtn +
                         '</div></div>';
                 }).join('');
             }).catch(function (err) {
                 body.innerHTML = '<div class="list-state">❌ ' + escHtml(err.message) + '</div>';
+            });
+        }
+
+        // ── 返却処理 ──
+        var _returnRow = null, _returnSheet = null;
+        function returnItem(row, sheetName, itemName) {
+            _returnRow   = row;
+            _returnSheet = sheetName;
+            document.getElementById('return-item-name').textContent = itemName || '（品名なし）';
+            var today = new Date().toISOString().split('T')[0];
+            document.getElementById('return-date-input').value = today;
+            var modal = document.getElementById('return-modal');
+            modal.style.display = 'flex';
+        }
+        function closeReturnModal() {
+            document.getElementById('return-modal').style.display = 'none';
+        }
+        function confirmReturn() {
+            var returnDate = document.getElementById('return-date-input').value;
+            closeReturnModal();
+            callGasApi({
+                action:     'updateStatus',
+                row:        _returnRow,
+                sheetName:  _returnSheet,
+                status:     '返却済み ✅',
+                returnDate: returnDate
+            }).then(function(result) {
+                if (result.success) {
+                    showToast('✅ 返却済みにしました');
+                    showList(); // 一覧を再読み込み
+                } else {
+                    showToast('❌ エラー: ' + (result.error || '更新失敗'));
+                }
+            }).catch(function(err) {
+                showToast('❌ 通信エラー: ' + err.message);
             });
         }
 
