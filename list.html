@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拾得物台帳 一覧</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans JP', -apple-system, sans-serif;
+            background: linear-gradient(160deg, #0a0f1e 0%, #101b35 50%, #0d1a2d 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            position: sticky; top: 0; z-index: 10;
+            background: rgba(10,15,30,0.9);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            backdrop-filter: blur(20px);
+            padding: 14px 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        }
+        .header-title { font-size: 17px; font-weight: 700; color: #f1f5f9; white-space: nowrap; }
+        .header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* ── Filters ── */
+        .filter-btn {
+            padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05); color: #94a3b8; font-family: inherit;
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .filter-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        .filter-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
+
+        .refresh-btn {
+            padding: 7px 14px; border-radius: 20px; border: 1px solid rgba(59,130,246,0.3);
+            background: rgba(59,130,246,0.1); color: #60a5fa; font-family: inherit;
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .refresh-btn:hover { background: rgba(59,130,246,0.2); }
+        .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+
+        /* ── Setup Banner ── */
+        .setup-banner {
+            margin: 24px auto; max-width: 480px; padding: 28px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px; text-align: center;
+        }
+        .setup-banner h2 { font-size: 18px; color: #f1f5f9; margin-bottom: 10px; }
+        .setup-banner p  { font-size: 13px; color: #64748b; margin-bottom: 18px; line-height: 1.7; }
+        .setup-input {
+            width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+            color: #f1f5f9; font-family: inherit; font-size: 13px; margin-bottom: 12px;
+        }
+        .setup-input:focus { outline: none; border-color: #3b82f6; }
+        .setup-save-btn {
+            width: 100%; padding: 13px; border: none; border-radius: 14px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff;
+            font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+        }
+
+        /* ── Stats ── */
+        .stats-bar {
+            padding: 10px 20px; font-size: 12px; color: #475569;
+            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .stat-item { display: flex; align-items: center; gap: 4px; }
+        .stat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        /* ── Table ── */
+        .table-wrap {
+            overflow-x: auto;
+            padding: 0 16px 32px;
+        }
+        table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+            min-width: 720px;
+        }
+        thead th {
+            padding: 12px 14px; text-align: left;
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            color: #64748b; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            white-space: nowrap;
+            position: sticky; top: 57px; z-index: 5;
+        }
+        tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        tbody tr.returned { opacity: 0.6; }
+        td {
+            padding: 12px 14px; vertical-align: middle;
+            color: #cbd5e1;
+        }
+        td.td-item { font-weight: 700; color: #f1f5f9; min-width: 120px; }
+        td.td-thumb { width: 72px; padding: 8px 10px; }
+        td.td-thumb img {
+            width: 56px; height: 56px; object-fit: cover;
+            border-radius: 10px; display: block;
+        }
+        td.td-thumb .no-img {
+            width: 56px; height: 56px; border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; color: #1e3a5f;
+        }
+        td.td-notes { max-width: 200px; color: #64748b; font-size: 12px; }
+        td.td-notes span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* ── Status Badge ── */
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 20px;
+            font-size: 10px; font-weight: 700; white-space: nowrap;
+        }
+        .badge-done     { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+        .badge-pending  { background: rgba(234,179,8,0.1);  color: #fbbf24; border: 1px solid rgba(234,179,8,0.2); }
+        .badge-returned { background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+        .badge-error    { background: rgba(239,68,68,0.1);  color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+
+        /* ── State ── */
+        .state-view {
+            text-align: center; padding: 80px 20px; color: #334155;
+        }
+        .spinner {
+            width: 44px; height: 44px; border: 3px solid rgba(59,130,246,0.1);
+            border-top-color: #3b82f6; border-radius: 50%;
+            animation: spin 0.9s linear infinite; margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(30,40,60,0.95); color: #f1f5f9;
+            padding: 12px 22px; border-radius: 14px; font-size: 13px; font-weight: 600;
+            backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 100;
+            opacity: 0; transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 600px) {
+            .header { padding: 10px 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+    <div class="header-title">📋 拾得物台帳 一覧</div>
+    <div class="header-controls">
+        <button class="filter-btn active" onclick="setFilter('all')"  id="f-all">すべて</button>
+        <button class="filter-btn"        onclick="setFilter('keep')" id="f-keep">保管中</button>
+        <button class="filter-btn"        onclick="setFilter('ret')"  id="f-ret">返却済み</button>
+        <button class="refresh-btn" onclick="loadData()" id="refresh-btn">🔄 更新</button>
+    </div>
+</div>
+
+<!-- ── Main Content ── -->
+<div id="main-content"></div>
+<div class="stats-bar" id="stats-bar"></div>
+<div class="table-wrap" id="table-wrap" style="display:none;">
+    <table>
+        <thead>
+            <tr>
+                <th>写真</th>
+                <th>日付</th>
+                <th>時間</th>
+                <th>品名</th>
+                <th>場所</th>
+                <th>拾得者</th>
+                <th>ステータス</th>
+                <th>備考</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const GAS_URL_KEY = 'gasApiUrl';
+    const SELF_URL    = window.location.href.split('?')[0];
+    const IS_GAS      = SELF_URL.includes('script.google.com');
+    let GAS_URL       = IS_GAS ? SELF_URL : (localStorage.getItem(GAS_URL_KEY) || '');
+
+    let allItems  = [];
+    let curFilter = 'all';
+
+    // ── 起動 ──
+    window.addEventListener('load', function() {
+        if (GAS_URL) {
+            loadData();
+        } else {
+            showSetup();
+        }
+    });
+
+    function showSetup() {
+        document.getElementById('main-content').innerHTML =
+            '<div class="setup-banner">' +
+            '<h2>⚙️ GAS URLの設定</h2>' +
+            '<p>GASのデプロイURLを入力してください。<br>メインアプリで設定済みなら自動で読み込まれます。</p>' +
+            '<input class="setup-input" id="url-input" type="text" placeholder="https://script.google.com/macros/s/XXXX/exec">' +
+            '<button class="setup-save-btn" onclick="saveUrl()">✅ 設定して読み込む</button>' +
+            '</div>';
+    }
+
+    function saveUrl() {
+        var url = document.getElementById('url-input').value.trim();
+        if (!url || !url.startsWith('https://script.google.com')) {
+            showToast('⚠️ 正しいURLを入力してください');
+            return;
+        }
+        GAS_URL = url;
+        localStorage.setItem(GAS_URL_KEY, url);
+        loadData();
+    }
+
+    // ── データ取得 ──
+    function loadData() {
+        var btn = document.getElementById('refresh-btn');
+        if (btn) { btn.classList.add('loading'); btn.textContent = '読み込み中...'; }
+
+        document.getElementById('main-content').innerHTML =
+            '<div class="state-view"><div class="spinner"></div>データを取得中...</div>';
+        document.getElementById('table-wrap').style.display = 'none';
+        document.getElementById('stats-bar').textContent = '';
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'list' }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        }).then(function(res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }).then(function(result) {
+            if (btn) { btn.classList.remove('loading'); btn.textContent = '🔄 更新'; }
+            if (!result.success) throw new Error(result.error || '取得失敗');
+            allItems = result.items || [];
+            renderTable();
+        }).catch(function(err) {
+            if (btn) { btn.classList.remove('loading'); btn.textContent = '🔄 更新'; }
+            document.getElementById('main-content').innerHTML =
+                '<div class="state-view">❌ ' + esc(err.message) + '<br><br>' +
+                '<small style="color:#475569">GAS URLが正しいか確認してください</small></div>';
+        });
+    }
+
+    // ── フィルター ──
+    function setFilter(f) {
+        curFilter = f;
+        ['all','keep','ret'].forEach(function(k) {
+            document.getElementById('f-' + k).classList.toggle('active', k === f);
+        });
+        renderTable();
+    }
+
+    // ── テーブル描画 ──
+    function renderTable() {
+        var items = allItems.filter(function(it) {
+            if (curFilter === 'keep') return !it.status || !it.status.includes('返却');
+            if (curFilter === 'ret')  return it.status && it.status.includes('返却');
+            return true;
+        });
+
+        document.getElementById('main-content').innerHTML = '';
+
+        if (allItems.length === 0) {
+            document.getElementById('table-wrap').style.display = 'none';
+            document.getElementById('main-content').innerHTML =
+                '<div class="state-view"><div style="font-size:48px;margin-bottom:12px;opacity:.4">📭</div>今月の登録がありません</div>';
+            return;
+        }
+
+        // 統計
+        var total    = allItems.length;
+        var keeping  = allItems.filter(function(it) { return !it.status || !it.status.includes('返却'); }).length;
+        var returned = allItems.filter(function(it) { return it.status && it.status.includes('返却'); }).length;
+        document.getElementById('stats-bar').innerHTML =
+            '<span class="stat-item"><span class="stat-dot" style="background:#64748b"></span>合計 ' + total + '件</span>' +
+            '<span class="stat-item"><span class="stat-dot" style="background:#fbbf24"></span>保管中 ' + keeping + '件</span>' +
+            '<span class="stat-item"><span class="stat-dot" style="background:#a78bfa"></span>返却済み ' + returned + '件</span>' +
+            '<span style="color:#334155; margin-left:auto; font-size:11px;">' + new Date().toLocaleTimeString('ja-JP') + ' 現在</span>';
+
+        if (items.length === 0) {
+            document.getElementById('table-wrap').style.display = 'none';
+            document.getElementById('main-content').innerHTML =
+                '<div class="state-view">該当する登録がありません</div>';
+            return;
+        }
+
+        document.getElementById('table-wrap').style.display = 'block';
+        document.getElementById('table-body').innerHTML = items.map(function(it) {
+            var isRet = it.status && it.status.includes('返却');
+            var badgeClass = isRet ? 'badge-returned'
+                : (it.status && it.status.includes('完了'))  ? 'badge-done'
+                : (it.status && it.status.includes('エラー')) ? 'badge-error'
+                : 'badge-pending';
+
+            var thumb = it.image
+                ? '<img src="' + esc(it.image) + '" alt="" loading="lazy">'
+                : '<div class="no-img">📷</div>';
+
+            return '<tr class="' + (isRet ? 'returned' : '') + '">' +
+                '<td class="td-thumb">' + thumb + '</td>' +
+                '<td style="white-space:nowrap">' + esc(it.date || '') + '</td>' +
+                '<td style="white-space:nowrap">' + esc(it.time || '') + '</td>' +
+                '<td class="td-item">' + esc(it.item || '---') + '</td>' +
+                '<td>' + esc(it.location || '---') + '</td>' +
+                '<td>' + esc(it.person || '---') + '</td>' +
+                '<td><span class="badge ' + badgeClass + '">' + esc(it.status || '---') + '</span></td>' +
+                '<td class="td-notes"><span>' + esc(it.notes || '') + '</span></td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    // ── Utilities ──
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+    function showToast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(function() { t.classList.remove('show'); }, 3000);
+    }
+</script>
+</body>
+</html>
