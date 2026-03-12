@@ -94,6 +94,7 @@
         .action-btns { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
         .return-btn-small { padding: 5px 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 12px; cursor: pointer; }
         .police-btn { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.08); color: #60a5fa; }
+        .delete-btn { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: #f87171; }
 
         /* ── 備考（Notes）エリアのデザイン ── */
         .item-notes {
@@ -431,15 +432,13 @@
             area.innerHTML = filtered.map((it, idx) => {
                 const isRet = it.status && it.status.includes('返却');
                 const isPolice = it.status && it.status.includes('警察');
-                const isProcessed = isRet || isPolice; // 返却か警察済みの場合はグレーアウト
+                const isProcessed = isRet || isPolice; 
                 
-                // バッジの見た目と文字の判定
                 let badgeClass = 'badge-pending';
                 let statusText = it.status || '保管中';
                 if (isRet) badgeClass = 'badge-returned';
                 else if (isPolice) badgeClass = 'badge-police';
 
-                // 備考（notes）がある場合のみブロックを作成
                 const notesHtml = it.notes ? `<div class="item-notes">${it.notes}</div>` : '';
 
                 return `
@@ -458,8 +457,13 @@
                                         <div class="action-btns">
                                             <button class="return-btn-small" onclick="quickReturn(${it.row}, '${it.sheetName}', '${it.item}')">📦 返却</button>
                                             <button class="return-btn-small police-btn" onclick="quickPolice(${it.row}, '${it.sheetName}', '${it.item}')">🚓 警察</button>
+                                            <button class="return-btn-small delete-btn" onclick="quickDelete(${it.row}, '${it.sheetName}', '${it.item}')">🗑️ 削除</button>
                                         </div>
-                                    ` : ''}
+                                    ` : `
+                                        <div class="action-btns">
+                                            <button class="return-btn-small delete-btn" onclick="quickDelete(${it.row}, '${it.sheetName}', '${it.item}')">🗑️ 削除</button>
+                                        </div>
+                                    `}
                                 </div>
                                 ${notesHtml}
                             </div>
@@ -475,10 +479,7 @@
             const today = new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
             try {
                 const res = await callGasApi({ action: 'updateStatus', row: row, sheetName: sheet, status: '返却済み ✅', returnDate: today });
-                if (res.success) {
-                    showToast('✅ 返却済みに更新しました');
-                    loadData();
-                }
+                if (res.success) { showToast('✅ 返却済みに更新しました'); loadData(); }
             } catch (e) { showToast('❌ 更新失敗'); }
         }
 
@@ -486,13 +487,23 @@
             if (!confirm(`「${name}」を警察へ届出済みにしますか？`)) return;
             const today = new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
             try {
-                // スプレッドシートには「警察届出 🚓」として記録します
                 const res = await callGasApi({ action: 'updateStatus', row: row, sheetName: sheet, status: '警察届出 🚓', returnDate: today });
-                if (res.success) {
-                    showToast('🚓 警察届出済みに更新しました');
-                    loadData();
-                }
+                if (res.success) { showToast('🚓 警察届出済みに更新しました'); loadData(); }
             } catch (e) { showToast('❌ 更新失敗'); }
+        }
+
+        // 削除ボタンの処理
+        async function quickDelete(row, sheet, name) {
+            if (!confirm(`⚠️ 本当に「${name}」のデータを削除しますか？\n※この操作は取り消せません（スプレッドシートからも消去されます）。`)) return;
+            try {
+                const res = await callGasApi({ action: 'delete', row: row, sheetName: sheet });
+                if (res.success) {
+                    showToast('🗑️ 削除しました');
+                    loadData(); // リストを再読み込み
+                } else {
+                    showToast('❌ 削除失敗: ' + (res.error || 'エラー'));
+                }
+            } catch (e) { showToast('❌ 通信エラー'); }
         }
 
         function openModal(url) {
