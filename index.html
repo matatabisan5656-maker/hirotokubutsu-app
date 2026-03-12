@@ -77,17 +77,39 @@
 
         /* ── Item Cards ── */
         .cards-area { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-        .item-card { display: flex; gap: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 14px; align-items: center; }
+        .item-card { display: flex; gap: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 14px; align-items: stretch; }
         .item-card.returned { opacity: 0.6; }
         .item-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; background: rgba(255,255,255,0.03); flex-shrink: 0; }
-        .item-info { flex: 1; min-width: 0; }
-        .item-name { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .item-name { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .item-meta { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+        
+        /* バッジのデザイン */
         .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-top: 5px; }
         .badge-pending { background: rgba(234,179,8,0.12); color: #fbbf24; border: 1px solid rgba(234,179,8,0.2); }
         .badge-returned { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+        .badge-police { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
         
-        .return-btn-small { margin-top: 8px; padding: 5px 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 12px; cursor: pointer; }
+        /* アクションボタン */
+        .action-btns { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .return-btn-small { padding: 5px 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 12px; cursor: pointer; }
+        .police-btn { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.08); color: #60a5fa; }
+
+        /* ── 備考（Notes）エリアのデザイン ── */
+        .item-notes {
+            flex: 0 0 42%; 
+            font-size: 11px;
+            color: #cbd5e1;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 8px;
+            border-radius: 8px;
+            white-space: pre-wrap; 
+            word-break: break-all; 
+            line-height: 1.4;
+            max-height: 80px;
+            overflow-y: auto;
+        }
 
         /* ── Toast & Modal ── */
         .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(100px); background: rgba(30, 40, 60, 0.95); color: #f1f5f9; padding: 14px 24px; border-radius: 16px; font-size: 14px; font-weight: 600; z-index: 100; opacity: 0; transition: 0.3s; border: 1px solid rgba(255,255,255,0.1); }
@@ -142,6 +164,7 @@
                     <button class="filter-chip active" id="fc-all" onclick="setFilter('all')">すべて</button>
                     <button class="filter-chip" id="fc-keep" onclick="setFilter('keep')">保管中</button>
                     <button class="filter-chip" id="fc-ret" onclick="setFilter('ret')">返却済み</button>
+                    <button class="filter-chip" id="fc-police" onclick="setFilter('police')">警察届出</button>
                 </div>
                 <div id="stats-label" style="padding: 0 16px; font-size: 11px; color: #475569;"></div>
             </div>
@@ -391,8 +414,10 @@
             const area = document.getElementById('cards-area');
             const filtered = allItems.filter(it => {
                 const isRet = it.status && it.status.includes('返却');
-                if (curFilter === 'keep') return !isRet;
+                const isPolice = it.status && it.status.includes('警察');
+                if (curFilter === 'keep') return !isRet && !isPolice;
                 if (curFilter === 'ret') return isRet;
+                if (curFilter === 'police') return isPolice;
                 return true;
             });
 
@@ -405,15 +430,40 @@
 
             area.innerHTML = filtered.map((it, idx) => {
                 const isRet = it.status && it.status.includes('返却');
+                const isPolice = it.status && it.status.includes('警察');
+                const isProcessed = isRet || isPolice; // 返却か警察済みの場合はグレーアウト
+                
+                // バッジの見た目と文字の判定
+                let badgeClass = 'badge-pending';
+                let statusText = it.status || '保管中';
+                if (isRet) badgeClass = 'badge-returned';
+                else if (isPolice) badgeClass = 'badge-police';
+
+                // 備考（notes）がある場合のみブロックを作成
+                const notesHtml = it.notes ? `<div class="item-notes">${it.notes}</div>` : '';
+
                 return `
-                    <div class="item-card ${isRet ? 'returned' : ''}">
+                    <div class="item-card ${isProcessed ? 'returned' : ''}">
                         ${it.image ? `<img src="${it.image}" class="item-thumb" onclick="openModal('${it.image}')">` : '<div class="item-thumb" style="display:flex;align-items:center;justify-content:center;">📷</div>'}
                         <div class="item-info">
                             <div class="item-name">${it.item || '品名なし'}</div>
-                            <div class="item-meta">📅 ${it.date || ''} ${it.time || ''}</div>
-                            <div class="item-meta">📍 ${it.location || '---'}</div>
-                            <span class="badge ${isRet ? 'badge-returned' : 'badge-pending'}">${it.status || '保管中'}</span>
-                            ${!isRet ? `<br><button class="return-btn-small" onclick="quickReturn(${it.row}, '${it.sheetName}', '${it.item}')">📦 返却処理</button>` : ''}
+                            
+                            <div style="display: flex; gap: 8px; align-items: flex-start;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="item-meta">📅 ${it.date || ''} ${it.time || ''}</div>
+                                    <div class="item-meta">📍 ${it.location || '---'}</div>
+                                    <span class="badge ${badgeClass}">${statusText}</span>
+                                    
+                                    ${!isProcessed ? `
+                                        <div class="action-btns">
+                                            <button class="return-btn-small" onclick="quickReturn(${it.row}, '${it.sheetName}', '${it.item}')">📦 返却</button>
+                                            <button class="return-btn-small police-btn" onclick="quickPolice(${it.row}, '${it.sheetName}', '${it.item}')">🚓 警察</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                ${notesHtml}
+                            </div>
+                            
                         </div>
                     </div>
                 `;
@@ -421,12 +471,25 @@
         }
 
         async function quickReturn(row, sheet, name) {
-            if (!confirm(`「${name}」を返却済みにしますか？`)) return;
+            if (!confirm(`「${name}」を持ち主へ返却済みにしますか？`)) return;
             const today = new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
             try {
                 const res = await callGasApi({ action: 'updateStatus', row: row, sheetName: sheet, status: '返却済み ✅', returnDate: today });
                 if (res.success) {
-                    showToast('✅ 更新しました');
+                    showToast('✅ 返却済みに更新しました');
+                    loadData();
+                }
+            } catch (e) { showToast('❌ 更新失敗'); }
+        }
+
+        async function quickPolice(row, sheet, name) {
+            if (!confirm(`「${name}」を警察へ届出済みにしますか？`)) return;
+            const today = new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
+            try {
+                // スプレッドシートには「警察届出 🚓」として記録します
+                const res = await callGasApi({ action: 'updateStatus', row: row, sheetName: sheet, status: '警察届出 🚓', returnDate: today });
+                if (res.success) {
+                    showToast('🚓 警察届出済みに更新しました');
                     loadData();
                 }
             } catch (e) { showToast('❌ 更新失敗'); }
