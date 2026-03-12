@@ -105,7 +105,7 @@
 
 <body>
 
-    <div id="screen-setup" class="screen">
+    <div id="screen-setup" class="screen active">
         <div class="hero-section">
             <div class="home-logo">⚙️</div>
             <div style="background: rgba(255,255,255,0.04); padding: 28px; border-radius: 24px; width: 100%; max-width: 400px;">
@@ -205,4 +205,240 @@
     </div>
 
     <div id="screen-success" class="screen" style="align-items: center; justify-content: center; text-align: center; gap: 30px; padding: 40px;">
-        <div style="font-size
+        <div style="font-size: 80px;">✅</div>
+        <h2>登録が完了しました！</h2>
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+            <button class="btn btn-primary" onclick="showScreen('home'); loadData();">🏠 ホームに戻って確認</button>
+            <button class="btn btn-secondary" onclick="openCamera()">📷 続けて登録する</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="img-modal" onclick="closeModal()">
+        <img class="modal-img" id="modal-img-el">
+    </div>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
+    <div class="toast" id="toast"></div>
+
+    <script>
+        /* ── Configuration ── */
+        const GAS_URL_KEY = 'gasApiUrl';
+        const SELF_URL = window.location.href.split('?')[0];
+        const IS_GAS = SELF_URL.includes('script.google.com');
+        let GAS_URL = IS_GAS ? SELF_URL : (localStorage.getItem(GAS_URL_KEY) || '');
+
+        let allItems = [];
+        let curPeriod = 'week';
+        let curFilter = 'all';
+        const state = { base64: null, mime: 'image/jpeg', aiResult: null, driveFileId: null };
+
+        /* ── Initialization ── */
+        window.addEventListener('load', () => {
+            if (GAS_URL) {
+                showScreen('home');
+                loadData();
+            } else {
+                showScreen('setup');
+            }
+        });
+
+        function saveGasUrl() {
+            const url = document.getElementById('gas-url-input').value.trim();
+            if (!url.startsWith('https://script.google.com')) {
+                showToast('⚠️ 有効なGASのURLを入力してください');
+                return;
+            }
+            GAS_URL = url;
+            localStorage.setItem(GAS_URL_KEY, url);
+            showScreen('home');
+            loadData();
+        }
+
+        function showScreen(name) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + name).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function scrollToList() {
+            document.getElementById('list-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /* ── Camera & Analysis ── */
+        function openCamera() {
+            const input = document.getElementById('camera-input');
+            input.value = '';
+            input.click();
+        }
+
+        document.getElementById('camera-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (re) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const max = 1200;
+                    if (w > h && w > max) { h *= max/w; w = max; }
+                    else if (h > max) { w *= max/h; h = max; }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    state.base64 = dataUrl.split(',')[1];
+                    document.getElementById('preview-img').src = dataUrl;
+                    document.getElementById('form-photo').src = dataUrl;
+                    showScreen('preview');
+                };
+                img.src = re.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        async function callGasApi(payload) {
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }
+
+        async function startAnalysis() {
+            showScreen('analyzing');
+            try {
+                const result = await callGasApi({ action: 'analyze', imageBase64: state.base64, imageMime: 'image/jpeg' });
+                if (!result.success) throw new Error(result.error);
+                
+                state.driveFileId = result.driveFileId;
+                const ai = result.aiResult || {};
+                const now = new Date();
+                document.getElementById('f-date').value = now.toISOString().split('T')[0];
+                document.getElementById('f-time').value = now.toTimeString().slice(0, 5);
+                document.getElementById('f-item').value = ai.item || '';
+                document.getElementById('f-location').value = ai.location || '';
+                document.getElementById('f-notes').value = ai.notes || '';
+                showScreen('form');
+            } catch (e) {
+                showToast('❌ 解析失敗: ' + e.message);
+                showScreen('home');
+            }
+        }
+
+        async function submitForm() {
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = '送信中...';
+            
+            try {
+                const res = await callGasApi({
+                    action: 'submit',
+                    driveFileId: state.driveFileId,
+                    date: document.getElementById('f-date').value,
+                    time: document.getElementById('f-time').value,
+                    item: document.getElementById('f-item').value,
+                    location: document.getElementById('f-location').value,
+                    person: document.getElementById('f-person').value,
+                    notes: document.getElementById('f-notes').value
+                });
+                if (!res.success) throw new Error(res.error);
+                showScreen('success');
+            } catch (e) {
+                showToast('❌ 送信失敗: ' + e.message);
+                btn.disabled = false;
+                btn.textContent = '再試行';
+            }
+        }
+
+        /* ── List Logic ── */
+        async function loadData() {
+            const area = document.getElementById('cards-area');
+            area.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const res = await callGasApi({ action: 'list', period: curPeriod });
+                allItems = res.items || [];
+                renderCards();
+            } catch (e) {
+                area.innerHTML = `<div style="text-align:center; padding:40px; color:#ef4444;">❌ データの読み込みに失敗しました</div>`;
+            }
+        }
+
+        function setPeriod(p) {
+            curPeriod = p;
+            document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('pt-' + p).classList.add('active');
+            loadData();
+        }
+
+        function setFilter(f) {
+            curFilter = f;
+            document.querySelectorAll('.filter-chip').forEach(t => t.classList.remove('active'));
+            document.getElementById('fc-' + f).classList.add('active');
+            renderCards();
+        }
+
+        function renderCards() {
+            const area = document.getElementById('cards-area');
+            const filtered = allItems.filter(it => {
+                const isRet = it.status && it.status.includes('返却');
+                if (curFilter === 'keep') return !isRet;
+                if (curFilter === 'ret') return isRet;
+                return true;
+            });
+
+            document.getElementById('stats-label').textContent = `${curPeriod === 'week' ? '今週' : curPeriod === 'month' ? '今月' : '全期間'}: ${filtered.length}件表示中`;
+
+            if (filtered.length === 0) {
+                area.innerHTML = `<div style="text-align:center; padding:60px; color:#475569;">📭 データがありません</div>`;
+                return;
+            }
+
+            area.innerHTML = filtered.map((it, idx) => {
+                const isRet = it.status && it.status.includes('返却');
+                return `
+                    <div class="item-card ${isRet ? 'returned' : ''}">
+                        ${it.image ? `<img src="${it.image}" class="item-thumb" onclick="openModal('${it.image}')">` : '<div class="item-thumb" style="display:flex;align-items:center;justify-content:center;">📷</div>'}
+                        <div class="item-info">
+                            <div class="item-name">${it.item || '品名なし'}</div>
+                            <div class="item-meta">📅 ${it.date || ''} ${it.time || ''}</div>
+                            <div class="item-meta">📍 ${it.location || '---'}</div>
+                            <span class="badge ${isRet ? 'badge-returned' : 'badge-pending'}">${it.status || '保管中'}</span>
+                            ${!isRet ? `<br><button class="return-btn-small" onclick="quickReturn(${it.row}, '${it.sheetName}', '${it.item}')">📦 返却処理</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function quickReturn(row, sheet, name) {
+            if (!confirm(`「${name}」を返却済みにしますか？`)) return;
+            const today = new Date().toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
+            try {
+                const res = await callGasApi({ action: 'updateStatus', row: row, sheetName: sheet, status: '返却済み ✅', returnDate: today });
+                if (res.success) {
+                    showToast('✅ 更新しました');
+                    loadData();
+                }
+            } catch (e) { showToast('❌ 更新失敗'); }
+        }
+
+        function openModal(url) {
+            document.getElementById('modal-img-el').src = url;
+            document.getElementById('img-modal').classList.add('open');
+        }
+        function closeModal() {
+            document.getElementById('img-modal').classList.remove('open');
+        }
+    </script>
+</body>
+</html>
