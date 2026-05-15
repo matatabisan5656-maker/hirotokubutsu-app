@@ -91,27 +91,27 @@
         .success-btn-group { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
         
         #screen-list { overflow-y: auto; }
-        .list-filter-bar { display: flex; gap: 6px; padding: 10px 16px 6px; flex-wrap: wrap; align-items: center; }
-        .list-filter-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .list-filter-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        .list-filter-bar { display: flex; gap: 6px; padding: 10px 16px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
+        .list-filter-btn { padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .list-filter-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
         
-        .list-stats { padding: 4px 16px 8px; font-size: 11px; color: #475569; display: flex; gap: 12px; flex-wrap: wrap; }
+        .list-stats { padding: 12px 16px 8px; font-size: 11px; color: #94a3b8; display: flex; gap: 12px; flex-wrap: wrap; }
         .list-stats span { display: flex; align-items: center; gap: 4px; }
         .stat-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         
         .list-table-wrap { overflow-x: auto; padding: 0 0 32px; }
         .list-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
-        .list-table thead th { padding: 10px 12px; text-align: left; background: rgba(10,15,30,0.98); border-bottom: 1px solid rgba(255,255,255,0.1); color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
+        .list-table thead th { padding: 12px; text-align: left; background: rgba(10,15,30,0.98); border-bottom: 1px solid rgba(255,255,255,0.1); color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
         .list-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
         .list-table tbody tr:hover { background: rgba(255,255,255,0.02); }
-        .list-table tbody tr.tr-returned { opacity: 0.65; }
-        .list-table td { padding: 10px 12px; vertical-align: middle; color: #cbd5e1; }
+        .list-table tbody tr.tr-returned { opacity: 0.6; }
+        .list-table td { padding: 12px; vertical-align: middle; color: #cbd5e1; }
         .list-table td.td-item { font-weight: 700; color: #f1f5f9; }
         .list-table td.td-thumb { width: 52px; padding: 6px 8px; }
         .list-table td.td-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
         .list-table td.td-thumb .no-img { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #1e3a5f; }
         
-        .ret-btn { padding: 3px 10px; font-size: 10px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+        .ret-btn { padding: 4px 10px; font-size: 10px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 10px; cursor: pointer; white-space: nowrap; }
         
         .status-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
         .status-done { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
@@ -130,7 +130,6 @@
         .error-banner { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 14px; padding: 14px 16px; margin: 16px 20px 0; color: #f87171; font-size: 13px; line-height: 1.6; display: none; }
         .error-banner.show { display: block; animation: screenIn 0.3s ease; }
 
-        /* 追加: 一括削除用のチェックボックス */
         .delete-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444; }
     </style>
 </head>
@@ -238,11 +237,16 @@
             <button class="back-btn" onclick="showScreen('home')">←</button>
             <h1>拾得物一覧</h1>
         </div>
+        
         <div class="list-filter-bar">
-            <button class="list-filter-btn active" id="lf-all"  onclick="setListFilter('all')">すべて</button>
-            <button class="list-filter-btn"        id="lf-keep" onclick="setListFilter('keep')">保管中</button>
-            <button class="list-filter-btn"        id="lf-ret"  onclick="setListFilter('ret')">返却済み</button>
+            <button class="list-filter-btn active" id="lf-month" onclick="setListFilter('month')">今月</button>
+            <button class="list-filter-btn" id="lf-prev"  onclick="setListFilter('prev')">先月</button>
+            <button class="list-filter-btn" id="lf-all"   onclick="setListFilter('all')">全て</button>
+            <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+            <button class="list-filter-btn" id="lf-ret"   onclick="setStatusFilter('ret')">返却済み</button>
+            <button class="list-filter-btn" id="lf-police" onclick="setStatusFilter('police')">警察届済み</button>
         </div>
+
         <div class="list-stats" id="list-stats"></div>
         <div id="list-state-area"></div>
         <div class="list-table-wrap" id="list-table-wrap" style="display:none;">
@@ -284,7 +288,6 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // ── GAS API URL ──
         const GAS_URL_KEY = 'gasApiUrl';
         const SELF_URL = window.location.href.split('?')[0];
         const IS_GAS   = SELF_URL.includes('script.google.com');
@@ -408,17 +411,24 @@
             });
         }
 
-        // ── 一覧・現金集計・一括削除 ──
+        // ── 一覧・フィルタロジック ──
         var allListItems = [];
-        var listFilter   = 'all';
+        var activePeriod = 'month';
+        var statusFilter = 'all';
 
-        function showList() {
+        function showList(period) {
+            activePeriod = period || activePeriod;
             showScreen('list');
             document.getElementById('list-state-area').innerHTML = '<div class="list-state"><div class="list-spinner"></div>読み込み中...</div>';
             document.getElementById('list-table-wrap').style.display = 'none';
             document.getElementById('list-stats').innerHTML = '';
 
-            callGasApi({ action: 'list' }).then(function (result) {
+            // ボタンの見た目更新（weekを省く）
+            ['month','prev','all'].forEach(p => {
+                document.getElementById('lf-' + p).classList.toggle('active', p === activePeriod);
+            });
+
+            callGasApi({ action: 'list', period: activePeriod }).then(function (result) {
                 if (!result.success || !result.items) {
                     document.getElementById('list-state-area').innerHTML = '<div class="list-state">❌ データ取得に失敗しました</div>'; return;
                 }
@@ -429,13 +439,24 @@
             });
         }
 
-        function setListFilter(f) {
-            listFilter = f;
-            ['all','keep','ret'].forEach(function(k) { document.getElementById('lf-' + k).classList.toggle('active', k === f); });
-            renderList();
+        function setListFilter(p) {
+            statusFilter = 'all'; 
+            updateStatusBtnUI();
+            showList(p);
         }
 
-        // IC除外の現金計算
+        function setStatusFilter(s) {
+            statusFilter = (statusFilter === s) ? 'all' : s;
+            updateStatusBtnUI();
+            renderList();
+        }
+        
+        function updateStatusBtnUI() {
+            ['ret', 'police'].forEach(s => {
+                document.getElementById('lf-' + s).classList.toggle('active', s === statusFilter);
+            });
+        }
+
         function extractCashAmount(itemStr, notesStr) {
             var combined = (itemStr + " " + notesStr).toLowerCase();
             if (combined.includes("ic") || combined.includes("suica") || combined.includes("pasmo") || 
@@ -475,13 +496,10 @@
             var checkboxes = document.querySelectorAll('.delete-checkbox:checked');
             if (checkboxes.length === 0) return;
             if (!confirm('選択した ' + checkboxes.length + ' 件のデータを一括削除します。\n本当によろしいですか？')) return;
-            
             var targets = [];
             checkboxes.forEach(function(cb) { targets.push({ sheetName: cb.getAttribute('data-sheet'), row: cb.getAttribute('data-row') }); });
-            
             var btn = document.getElementById('bulk-delete-btn');
             btn.disabled = true; btn.innerHTML = '削除中...';
-            
             callGasApi({ action: 'bulkDelete', targets: targets }).then(function(res) {
                 if (res.success) { showToast('✅ 一括削除が完了しました'); showList(); } 
                 else { showToast('❌ エラー: ' + res.error); }
@@ -491,34 +509,36 @@
 
         function renderList() {
             var items = allListItems.filter(function(it) {
-                if (listFilter === 'keep') return !it.status || !it.status.includes('返却');
-                if (listFilter === 'ret')  return it.status && it.status.includes('返却');
+                if (statusFilter === 'ret') return it.status && it.status.includes('返却');
+                if (statusFilter === 'police') return it.status && it.status.includes('警察');
                 return true;
             });
+
+            if (activePeriod === 'prev') {
+                var prevMonth = new Date();
+                prevMonth.setMonth(prevMonth.getMonth() - 1);
+                var prevStr = (prevMonth.getMonth() + 1) + '月';
+                items = items.filter(it => it.sheetName === prevStr);
+            }
 
             var totalCash = 0;
             items.forEach(function(it) { totalCash += extractCashAmount(it.item || '', it.notes || ''); });
 
-            var total    = allListItems.length;
-            var keeping  = allListItems.filter(function(it) { return !it.status || !it.status.includes('返却'); }).length;
-            var returned = allListItems.filter(function(it) { return it.status && it.status.includes('返却'); }).length;
+            var total    = items.length;
+            var keeping  = items.filter(function(it) { return !it.status || !it.status.includes('返却'); }).length;
+            var returned = items.filter(function(it) { return it.status && it.status.includes('返却'); }).length;
 
-            document.getElementById('list-stats').innerHTML = total === 0 ? '' :
+            document.getElementById('list-stats').innerHTML = 
                 '<div style="width:100%; margin-bottom:10px; display:flex; gap:12px;">' +
-                '<span><span class="stat-dot" style="background:#64748b"></span>合計 ' + total + '件</span>' +
+                '<span><span class="stat-dot" style="background:#64748b"></span>表示 ' + total + '件</span>' +
                 '<span><span class="stat-dot" style="background:#fbbf24"></span>保管中 ' + keeping + '件</span>' +
-                '<span><span class="stat-dot" style="background:#a78bfa"></span>返却済み ' + returned + '件</span>' +
+                '<span><span class="stat-dot" style="background:#a78bfa"></span>返却済 ' + returned + '件</span>' +
                 '</div>' +
                 '<div style="width:100%; padding: 10px; background: rgba(10, 15, 30, 0.95); border: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center; border-radius: 8px; margin-bottom: 10px;">' +
                 '<span style="color:#34d399; font-weight:bold; font-size:13px;">💰 現金合計：' + totalCash.toLocaleString() + ' 円</span>' +
                 '<button id="bulk-delete-btn" class="ret-btn" style="background:#ef4444; color:white; border:none; display:none; margin:0;" onclick="confirmBulkDelete()"></button>' +
                 '</div>';
 
-            if (allListItems.length === 0) {
-                document.getElementById('list-table-wrap').style.display = 'none';
-                document.getElementById('list-state-area').innerHTML = '<div class="list-state"><div style="font-size:40px;opacity:.4;margin-bottom:10px">📭</div>まだ登録がありません</div>';
-                return;
-            }
             if (items.length === 0) {
                 document.getElementById('list-table-wrap').style.display = 'none';
                 document.getElementById('list-state-area').innerHTML = '<div class="list-state">該当なし</div>';
