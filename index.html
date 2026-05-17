@@ -101,7 +101,7 @@
         .stat-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         
         .list-table-wrap { overflow-x: auto; padding: 0 0 32px; }
-        .list-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
+        .list-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 650px; } /* 表の幅を少し広げました */
         .list-table thead th { padding: 12px; text-align: left; background: rgba(10,15,30,0.98); border-bottom: 1px solid rgba(255,255,255,0.1); color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
         .list-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
         .list-table tbody tr:hover { background: rgba(255,255,255,0.02); }
@@ -112,6 +112,9 @@
         .list-table td.td-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
         .list-table td.td-thumb .no-img { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #1e3a5f; }
         
+        /* 備考欄用のスタイル（長すぎる文字を改行して見やすくする） */
+        .td-notes { max-width: 160px; font-size: 11px; white-space: normal !important; line-height: 1.4; color: #94a3b8; }
+
         .ret-btn { padding: 4px 10px; font-size: 10px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 10px; cursor: pointer; white-space: nowrap; }
         
         .status-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
@@ -261,6 +264,7 @@
                         <th>場所</th>
                         <th>拾得者</th>
                         <th>状態</th>
+                        <th>備考</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -424,7 +428,6 @@
             document.getElementById('list-table-wrap').style.display = 'none';
             document.getElementById('list-stats').innerHTML = '';
 
-            // ボタンの見た目更新（weekを省く）
             ['month','prev','all'].forEach(p => {
                 document.getElementById('lf-' + p).classList.toggle('active', p === activePeriod);
             });
@@ -553,6 +556,7 @@
                 var statusClass = isRet ? 'status-returned' : (it.status && it.status.includes('完了'))  ? 'status-done' : (it.status && it.status.includes('エラー')) ? 'status-error' : 'status-pending';
                 var thumb = it.image ? '<img src="' + escHtml(it.image) + '" alt="" loading="lazy">' : '<div class="no-img">📷</div>';
                 var retBtn = isRet ? '' : '<button class="ret-btn" onclick="returnItem(' + it.row + ',\'' + escHtml(it.sheetName) + '\',\'' + escHtml(it.item || '') + '\')">↩️ 返却</button>';
+                
                 return '<tr class="' + (isRet ? 'tr-returned' : '') + '">' +
                     '<td style="text-align:center;"><input type="checkbox" class="delete-checkbox" data-sheet="' + escHtml(it.sheetName) + '" data-row="' + it.row + '" onchange="toggleBulkDeleteBtn()"></td>' +
                     '<td class="td-thumb">' + thumb + '</td>' +
@@ -561,6 +565,8 @@
                     '<td>' + escHtml(it.location || '---') + '</td>' +
                     '<td>' + escHtml(it.person || '---') + '</td>' +
                     '<td><span class="status-badge ' + statusClass + '">' + escHtml(it.status || '---') + '</span></td>' +
+                    /* 🚀 ここで各行に備考データを流し込んでいます */
+                    '<td class="td-notes">' + escHtml(it.notes || '---') + '</td>' +
                     '<td>' + retBtn + '</td>' +
                     '</tr>';
             }).join('');
