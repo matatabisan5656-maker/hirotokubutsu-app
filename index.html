@@ -101,7 +101,7 @@
         .stat-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         
         .list-table-wrap { overflow-x: auto; padding: 0 0 32px; }
-        .list-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 650px; } /* 表の幅を少し広げました */
+        .list-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 650px; } 
         .list-table thead th { padding: 12px; text-align: left; background: rgba(10,15,30,0.98); border-bottom: 1px solid rgba(255,255,255,0.1); color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
         .list-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
         .list-table tbody tr:hover { background: rgba(255,255,255,0.02); }
@@ -112,11 +112,15 @@
         .list-table td.td-thumb img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
         .list-table td.td-thumb .no-img { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #1e3a5f; }
         
-        /* 備考欄用のスタイル（長すぎる文字を改行して見やすくする） */
         .td-notes { max-width: 160px; font-size: 11px; white-space: normal !important; line-height: 1.4; color: #94a3b8; }
 
         .ret-btn { padding: 4px 10px; font-size: 10px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 10px; cursor: pointer; white-space: nowrap; }
         
+        /* 🚀 警察・処理・戻すボタン用の追加デザイン */
+        .action-btn-process { border-color: rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.08); color: #60a5fa; }
+        .action-btn-undo { border-color: rgba(100, 116, 139, 0.3); background: rgba(100, 116, 139, 0.08); color: #94a3b8; }
+        .status-police { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+
         .status-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
         .status-done { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
         .status-pending { background: rgba(234, 179, 8, 0.1); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.2); }
@@ -265,7 +269,7 @@
                         <th>拾得者</th>
                         <th>状態</th>
                         <th>備考</th>
-                        <th></th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody id="list-tbody"></tbody>
@@ -275,21 +279,24 @@
 
     <div id="return-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center; padding:24px;">
         <div style="background:#1e293b; border:1px solid rgba(255,255,255,0.1); border-radius:24px; padding:28px; width:100%; max-width:380px;">
-            <div style="font-size:32px; text-align:center; margin-bottom:12px;">↩️</div>
-            <div style="font-size:18px; font-weight:700; color:#f1f5f9; text-align:center; margin-bottom:6px;">返却処理</div>
+            <div style="font-size:32px; text-align:center; margin-bottom:12px;">⚙️</div>
+            <div style="font-size:18px; font-weight:700; color:#f1f5f9; text-align:center; margin-bottom:6px;">処理状況の更新</div>
             <div id="return-item-name" style="font-size:14px; color:#64748b; text-align:center; margin-bottom:20px;"></div>
-            <div style="margin-bottom:16px;">
-                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:8px;">📅 返却日</label>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:8px;">📅 処理日</label>
                 <input type="date" id="return-date-input" class="form-input">
             </div>
-            <div style="display:flex; gap:12px;">
-                <button class="btn btn-secondary" style="flex:1;" onclick="closeReturnModal()">キャンセル</button>
-                <button class="btn btn-success" style="flex:1;" onclick="confirmReturn()">✅ 返却済みにする</button>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; gap:12px;">
+                    <button class="btn btn-secondary" style="flex:1;" onclick="closeProcessModal()">キャンセル</button>
+                    <button class="btn btn-success" style="flex:1;" onclick="confirmProcess('ret')">↩️ 返却済みにする</button>
+                </div>
+                <button class="btn btn-primary" style="width:100%;" onclick="confirmProcess('police')">🚓 警察届済みにする</button>
             </div>
         </div>
     </div>
 
-    <input type="file" id="camera-input" accept="image/*" capture="environment">
+    <input type="file" id="camera-input" accept="image/*">
     <div class="toast" id="toast"></div>
 
     <script>
@@ -529,14 +536,16 @@
             items.forEach(function(it) { totalCash += extractCashAmount(it.item || '', it.notes || ''); });
 
             var total    = items.length;
-            var keeping  = items.filter(function(it) { return !it.status || !it.status.includes('返却'); }).length;
+            var keeping  = items.filter(function(it) { return !it.status || (!it.status.includes('返却') && !it.status.includes('警察')); }).length;
             var returned = items.filter(function(it) { return it.status && it.status.includes('返却'); }).length;
+            var policed  = items.filter(function(it) { return it.status && it.status.includes('警察'); }).length;
 
             document.getElementById('list-stats').innerHTML = 
-                '<div style="width:100%; margin-bottom:10px; display:flex; gap:12px;">' +
+                '<div style="width:100%; margin-bottom:10px; display:flex; gap:12px; flex-wrap:wrap;">' +
                 '<span><span class="stat-dot" style="background:#64748b"></span>表示 ' + total + '件</span>' +
                 '<span><span class="stat-dot" style="background:#fbbf24"></span>保管中 ' + keeping + '件</span>' +
                 '<span><span class="stat-dot" style="background:#a78bfa"></span>返却済 ' + returned + '件</span>' +
+                '<span><span class="stat-dot" style="background:#60a5fa"></span>警察済 ' + policed + '件</span>' +
                 '</div>' +
                 '<div style="width:100%; padding: 10px; background: rgba(10, 15, 30, 0.95); border: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center; border-radius: 8px; margin-bottom: 10px;">' +
                 '<span style="color:#34d399; font-weight:bold; font-size:13px;">💰 現金合計：' + totalCash.toLocaleString() + ' 円</span>' +
@@ -552,12 +561,23 @@
             document.getElementById('list-state-area').innerHTML = '';
             document.getElementById('list-table-wrap').style.display = 'block';
             document.getElementById('list-tbody').innerHTML = items.map(function(it) {
-                var isRet = it.status && it.status.includes('返却');
-                var statusClass = isRet ? 'status-returned' : (it.status && it.status.includes('完了'))  ? 'status-done' : (it.status && it.status.includes('エラー')) ? 'status-error' : 'status-pending';
-                var thumb = it.image ? '<img src="' + escHtml(it.image) + '" alt="" loading="lazy">' : '<div class="no-img">📷</div>';
-                var retBtn = isRet ? '' : '<button class="ret-btn" onclick="returnItem(' + it.row + ',\'' + escHtml(it.sheetName) + '\',\'' + escHtml(it.item || '') + '\')">↩️ 返却</button>';
                 
-                return '<tr class="' + (isRet ? 'tr-returned' : '') + '">' +
+                var isRet = it.status && it.status.includes('返却');
+                var isPol = it.status && it.status.includes('警察');
+                var isProcessed = isRet || isPol; // 処理済みかどうか
+                
+                var statusClass = isRet ? 'status-returned' : isPol ? 'status-police' : (it.status && it.status.includes('完了')) ? 'status-done' : (it.status && it.status.includes('エラー')) ? 'status-error' : 'status-pending';
+                var thumb = it.image ? '<img src="' + escHtml(it.image) + '" alt="" loading="lazy">' : '<div class="no-img">📷</div>';
+                
+                // 🚀 未処理なら「処理」ボタン、処理済みなら「戻す」ボタンを出し分ける
+                var actionBtn = '';
+                if (isProcessed) {
+                    actionBtn = '<button class="ret-btn action-btn-undo" onclick="undoStatus(' + it.row + ',\'' + escHtml(it.sheetName) + '\')">↩️ 戻す</button>';
+                } else {
+                    actionBtn = '<button class="ret-btn action-btn-process" onclick="openProcessModal(' + it.row + ',\'' + escHtml(it.sheetName) + '\',\'' + escHtml(it.item || '') + '\')">⚙️ 処理</button>';
+                }
+                
+                return '<tr class="' + (isProcessed ? 'tr-returned' : '') + '">' +
                     '<td style="text-align:center;"><input type="checkbox" class="delete-checkbox" data-sheet="' + escHtml(it.sheetName) + '" data-row="' + it.row + '" onchange="toggleBulkDeleteBtn()"></td>' +
                     '<td class="td-thumb">' + thumb + '</td>' +
                     '<td style="white-space:nowrap">' + escHtml((it.date || '') + ' ' + (it.time || '')) + '</td>' +
@@ -565,27 +585,47 @@
                     '<td>' + escHtml(it.location || '---') + '</td>' +
                     '<td>' + escHtml(it.person || '---') + '</td>' +
                     '<td><span class="status-badge ' + statusClass + '">' + escHtml(it.status || '---') + '</span></td>' +
-                    /* 🚀 ここで各行に備考データを流し込んでいます */
                     '<td class="td-notes">' + escHtml(it.notes || '---') + '</td>' +
-                    '<td>' + retBtn + '</td>' +
+                    '<td>' + actionBtn + '</td>' +
                     '</tr>';
             }).join('');
         }
 
-        var _returnRow = null, _returnSheet = null;
-        function returnItem(row, sheetName, itemName) {
-            _returnRow   = row; _returnSheet = sheetName;
+        // ── 🚀 新しい処理・戻す機能 ──
+        var _processRow = null, _processSheet = null;
+        
+        function openProcessModal(row, sheetName, itemName) {
+            _processRow   = row; 
+            _processSheet = sheetName;
             document.getElementById('return-item-name').textContent = itemName || '（品名なし）';
             document.getElementById('return-date-input').value = new Date().toISOString().split('T')[0];
             document.getElementById('return-modal').style.display = 'flex';
         }
-        function closeReturnModal() { document.getElementById('return-modal').style.display = 'none'; }
-        function confirmReturn() {
+        
+        function closeProcessModal() { 
+            document.getElementById('return-modal').style.display = 'none'; 
+        }
+        
+        // type: 'ret'（返却） または 'police'（警察）
+        function confirmProcess(type) {
             var returnDate = document.getElementById('return-date-input').value;
-            closeReturnModal();
-            callGasApi({ action: 'updateStatus', row: _returnRow, sheetName: _returnSheet, status: '返却済み ✅', returnDate: returnDate })
+            var newStatus = type === 'ret' ? '返却済み ✅' : '警察届済み 🚓';
+            
+            closeProcessModal();
+            callGasApi({ action: 'updateStatus', row: _processRow, sheetName: _processSheet, status: newStatus, returnDate: returnDate })
             .then(function(result) {
-                if (result.success) { showToast('✅ 返却済みにしました'); showList(); } 
+                if (result.success) { showToast('✅ 状態を更新しました'); showList(); } 
+                else { showToast('❌ エラー: ' + (result.error || '更新失敗')); }
+            }).catch(function(err) { showToast('❌ 通信エラー: ' + err.message); });
+        }
+
+        // 間違えた場合に戻す処理
+        function undoStatus(row, sheetName) {
+            if (!confirm('この拾得物を「未処理（保管中）」の状態に戻しますか？\n（※備考欄に追記された処理日はそのまま履歴として残ります）')) return;
+            
+            callGasApi({ action: 'updateStatus', row: row, sheetName: sheetName, status: '完了 ✅' })
+            .then(function(result) {
+                if (result.success) { showToast('✅ 未処理に戻しました'); showList(); } 
                 else { showToast('❌ エラー: ' + (result.error || '更新失敗')); }
             }).catch(function(err) { showToast('❌ 通信エラー: ' + err.message); });
         }
