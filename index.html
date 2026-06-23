@@ -116,7 +116,6 @@
 
         .ret-btn { padding: 4px 10px; font-size: 10px; font-weight: 700; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; border-radius: 10px; cursor: pointer; white-space: nowrap; }
         
-        /* 🚀 警察・処理・戻すボタン用の追加デザイン */
         .action-btn-process { border-color: rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.08); color: #60a5fa; }
         .action-btn-undo { border-color: rgba(100, 116, 139, 0.3); background: rgba(100, 116, 139, 0.08); color: #94a3b8; }
         .status-police { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
@@ -296,7 +295,7 @@
         </div>
     </div>
 
-    <input type="file" id="camera-input" accept="image/*">
+    <input type="file" id="camera-input" accept="image/*" capture="environment">
     <div class="toast" id="toast"></div>
 
     <script>
@@ -327,9 +326,11 @@
             window.scrollTo(0, 0);
         }
 
+        // 🚀 シンプルに一発起動へ戻しました
         function openCamera() {
             var input = document.getElementById('camera-input');
-            input.value = ''; input.click();
+            input.value = ''; 
+            input.click();
         }
 
         document.getElementById('camera-input').addEventListener('change', function (e) {
@@ -423,7 +424,6 @@
             });
         }
 
-        // ── 一覧・フィルタロジック ──
         var allListItems = [];
         var activePeriod = 'month';
         var statusFilter = 'all';
@@ -564,12 +564,11 @@
                 
                 var isRet = it.status && it.status.includes('返却');
                 var isPol = it.status && it.status.includes('警察');
-                var isProcessed = isRet || isPol; // 処理済みかどうか
+                var isProcessed = isRet || isPol;
                 
                 var statusClass = isRet ? 'status-returned' : isPol ? 'status-police' : (it.status && it.status.includes('完了')) ? 'status-done' : (it.status && it.status.includes('エラー')) ? 'status-error' : 'status-pending';
                 var thumb = it.image ? '<img src="' + escHtml(it.image) + '" alt="" loading="lazy">' : '<div class="no-img">📷</div>';
                 
-                // 🚀 未処理なら「処理」ボタン、処理済みなら「戻す」ボタンを出し分ける
                 var actionBtn = '';
                 if (isProcessed) {
                     actionBtn = '<button class="ret-btn action-btn-undo" onclick="undoStatus(' + it.row + ',\'' + escHtml(it.sheetName) + '\')">↩️ 戻す</button>';
@@ -591,7 +590,6 @@
             }).join('');
         }
 
-        // ── 🚀 新しい処理・戻す機能 ──
         var _processRow = null, _processSheet = null;
         
         function openProcessModal(row, sheetName, itemName) {
@@ -606,7 +604,6 @@
             document.getElementById('return-modal').style.display = 'none'; 
         }
         
-        // type: 'ret'（返却） または 'police'（警察）
         function confirmProcess(type) {
             var returnDate = document.getElementById('return-date-input').value;
             var newStatus = type === 'ret' ? '返却済み ✅' : '警察届済み 🚓';
@@ -619,7 +616,6 @@
             }).catch(function(err) { showToast('❌ 通信エラー: ' + err.message); });
         }
 
-        // 間違えた場合に戻す処理
         function undoStatus(row, sheetName) {
             if (!confirm('この拾得物を「未処理（保管中）」の状態に戻しますか？\n（※備考欄に追記された処理日はそのまま履歴として残ります）')) return;
             
